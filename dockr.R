@@ -70,6 +70,6 @@ shiny_write_docker <- function(
 }
 
 shiny_app <- "C:/Users/ZemerN036438/OneDrive - Kennesaw State University/Data Science/Projects/shiny_call_volume_probabilities/app"
-shiny_app <- "app"
+shiny_app <- "."
 
 shiny_write_docker(appdir = shiny_app)
