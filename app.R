@@ -4,7 +4,7 @@ library(tidyr)
 library(ggplot2)
 library(data.table)
 library(shinyWidgets)
-#library(shinyDarkmode)
+library(shinyDarkmode)
 library(lemon)
 
 incidents_raw_df <- fread("incident_counts_by_first_in_callsign.csv", na.strings = "NULL") %>%
@@ -94,18 +94,18 @@ display_choices <- list("Facets", "Overlayed")
 
 ui <- fluidPage(
     fluidRow(
-        #use_darkmode(),
+        use_darkmode(),
         column(11,
                titlePanel(
                    "Poisson Probability Distribution of Daily Incident Counts by Battalion"
-                   )
-               ),
+               )
+        ),
         column(1, tags$div(
             #style = "margin-top: -25px; float: right; margin-right: -150px;",
             style = "margin-top: 25px; text-align: left;",
             prettySwitch("togglemode", "Dark Mode", value = TRUE, fill = TRUE, status = "info")
-            )
-    )),
+        )
+        )),
     tags$head(
         tags$script(
             '
@@ -129,7 +129,7 @@ ui <- fluidPage(
             '
         )
     ),
-
+    
     #tabsetPanel(type = "pills",
     #            tabPanel("Distribution Plot",
     #                     wellPanel(
@@ -138,7 +138,7 @@ ui <- fluidPage(
     #            )
     #),
     
-
+    
     
     fluidRow(column(12,
                     wellPanel(
@@ -206,9 +206,9 @@ ui <- fluidPage(
 
 server <- function(input, output, session) {
     
-    #darkmode_toggle(inputid = 'togglemode',
-    #                 saveInCookies = TRUE,
-    #                 autoMatchOsTheme = TRUE)
+    darkmode_toggle(inputid = 'togglemode',
+                    saveInCookies = TRUE,
+                    autoMatchOsTheme = TRUE)
     
     dimension_display <- reactive({
         data.frame(
@@ -297,67 +297,61 @@ server <- function(input, output, session) {
     
     output$dist_plot <- renderPlot(
         {
-        req(input$grain, input$dates[1], input$dates[2], incident_counts_df(), station_choices())
-        
-        max_xlim <- plyr::round_any(max(incident_counts_df()$daily_mean_incidents) * 1.5,
-                            10,
-                            f = ceiling)
-        
-        dim_x <- dimension_display()$x
-        
-        xlim_dyn_by <- (round(max_xlim/(dim_x/35), 0))
-        
-        if(length(xlim_dyn_by) < 1) {
-            xlim_dyn_by <- 1
-        } 
-
-        xlim_dyn <- seq.int(from = 0, to = max_xlim, by = max(c(xlim_dyn_by,1)))
-        
-        
-        plot <-
-            {if (input$grain == "first_unit_battalion_id") { 
-                ggplot(incident_counts_df(), aes(x = trial, y = poisson_prob, fill = first_unit_battalion)) +
-                   {if (input$display == "Facets") facet_wrap(vars(first_unit_battalion), ncol = 1, scales = 'fixed', shrink = FALSE)}
-                #{if (input$display == "Facets") facet_grid(first_unit_battalion ~ NA, scales = 'free_y', space = 'fixed', shrink = FALSE)}
+            req(input$grain, input$dates[1], input$dates[2], incident_counts_df(), station_choices())
+            
+            max_xlim <- plyr::round_any(max(incident_counts_df()$daily_mean_incidents) * 1.5,
+                                        10,
+                                        f = ceiling)
+            
+            dim_x <- dimension_display()$x
+            
+            xlim_dyn_by <- (round(max_xlim/(dim_x/35), 0))
+            
+            if(length(xlim_dyn_by) < 1) {
+                xlim_dyn_by <- 1
+            } 
+            
+            xlim_dyn <- seq.int(from = 0, to = max_xlim, by = max(c(xlim_dyn_by,1)))
+            
+            
+            plot <-
+                {if (input$grain == "first_unit_battalion_id") { 
+                    ggplot(incident_counts_df(), aes(x = trial, y = poisson_prob, fill = first_unit_battalion)) +
+                        {if (input$display == "Facets") facet_wrap(vars(first_unit_battalion), ncol = 1, scales = 'fixed', shrink = FALSE)}
+                    #{if (input$display == "Facets") facet_grid(first_unit_battalion ~ NA, scales = 'free_y', space = 'fixed', shrink = FALSE)}
+                    
+                } else if (input$grain == "first_unit_station_id") {
+                    ggplot(incident_counts_df(), aes(x = trial, y = poisson_prob, fill = first_unit_station)) +
+                        #{if (input$display == "Facets") facet_wrap(vars(first_unit_station), ncol = 2, scales = 'fixed', shrink = FALSE)}
+                        {if (input$display == "Facets") facet_rep_wrap(vars(first_unit_station), ncol = 2, scales = 'fixed', shrink = FALSE, repeat.tick.labels = TRUE)}
+                    #{if (input$display == "Facets") facet_grid(first_unit_station ~ first_unit_battalion, scales = 'free_y', space = 'fixed', shrink = FALSE)}
+                }} +
+                geom_bar(stat = "identity",
+                         position = "identity",
+                         alpha = 0.3) +
+                geom_line(alpha = 0.3) +
                 
-            } else if (input$grain == "first_unit_station_id") {
-                ggplot(incident_counts_df(), aes(x = trial, y = poisson_prob, fill = first_unit_station)) +
-                    #{if (input$display == "Facets") facet_wrap(vars(first_unit_station), ncol = 2, scales = 'fixed', shrink = FALSE)}
-                    {if (input$display == "Facets") facet_rep_wrap(vars(first_unit_station), ncol = 2, scales = 'fixed', shrink = FALSE, repeat.tick.labels = TRUE)}
-                #{if (input$display == "Facets") facet_grid(first_unit_station ~ first_unit_battalion, scales = 'free_y', space = 'fixed', shrink = FALSE)}
-            }} +
-            geom_bar(stat = "identity",
-                     position = "identity",
-                     alpha = 0.3) +
-            geom_line(alpha = 0.3) +
+                #geom_text(aes(label = round(poisson_prob, 2)), vjust = -0.2) +
+                labs(x = "Daily Incident Count",
+                     y = "Probability",
+                     fill = "Legend") +
+                coord_cartesian(xlim = c(0, max_xlim)) +
+                scale_x_continuous(labels = xlim_dyn,
+                                   breaks = xlim_dyn) + 
+                theme(text = element_text(size = 16),
+                      panel.grid = element_blank(),
+                      panel.grid.minor.y = element_blank(),
+                      legend.position = "bottom")
             
-            #geom_text(aes(label = round(poisson_prob, 2)), vjust = -0.2) +
-            labs(x = "Daily Incident Count",
-                 y = "Probability",
-                 fill = "Legend") +
-            coord_cartesian(xlim = c(0, max_xlim)) +
-            scale_x_continuous(labels = xlim_dyn,
-                               breaks = xlim_dyn) + 
-            theme(text = element_text(size = 16),
-                  panel.grid = element_blank(),
-                  panel.grid.minor.y = element_blank(),
-                  legend.position = "bottom")
-        
-        ?unit
-            
-        return(plot)
-    })
+            return(plot)
+        })
     
     
     output$dist_plot_ui <- renderUI({
         plotOutput("dist_plot", height = plot_height(),)
     })
     
-
+    
 }
 
 shinyApp(ui = ui, server = server)
-
-
-
-#poisson.test(c(30, 56), 10, alternative = "two.sided")
